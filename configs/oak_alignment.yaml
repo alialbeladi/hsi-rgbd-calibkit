@@ -1,0 +1,35 @@
+# OAK-D Depth Alignment Configuration
+#
+# This file documents the depth alignment settings used during calibration.
+# These settings are recorded in the rig.yaml artifact for reproducibility.
+
+# Depth alignment to RGB
+depth_alignment:
+  # Whether depth is spatially aligned to RGB camera frame
+  aligned_to_rgb: true
+  
+  # Output resolution for aligned depth
+  output_width: 1280
+  output_height: 720
+
+# Stereo depth configuration
+stereo:
+  # Stereo mode: "standard", "extended", or "subpixel"
+  mode: standard
+  
+  # Enable subpixel disparity for higher depth precision
+  subpixel_enabled: true
+  
+  # Enable left-right consistency check for quality filtering
+  lr_check_enabled: true
+  
+  # Confidence threshold (0-255, higher = more confident)
+  confidence_threshold: 200
+  
+  # Median filter size (0, 3, 5, or 7)
+  median_filter: 5
+
+# Additional notes for documentation
+notes: |
+  Default OAK-D S2 depth alignment configuration.
+  Depth is aligned to the RGB camera frame for easier fusion.

@@ -1,0 +1,47 @@
+# OAK RGB Camera Intrinsics
+# Placeholder values for sample session
+
+device:
+  serial: "14110250AB"
+  model: "OAK-D S2"
+  calibration_date: "2024-01-01"
+
+rgb:
+  # Focal lengths (pixels)
+  fx: 1000.0
+  fy: 1000.0
+  
+  # Principal point (pixels)
+  cx: 640.0
+  cy: 360.0
+  
+  # Image dimensions (pixels)
+  width: 1280
+  height: 720
+  
+  # Distortion model
+  distortion_model: radtan
+  
+  # Distortion coefficients [k1, k2, p1, p2, k3]
+  distortion_coeffs: [0.05, -0.08, 0.0, 0.0, 0.02]
+
+# Optional: mono camera intrinsics
+left_mono:
+  fx: 800.0
+  fy: 800.0
+  cx: 320.0
+  cy: 200.0
+  width: 640
+  height: 400
+  distortion_model: radtan
+  distortion_coeffs: [0.03, -0.05, 0.0, 0.0, 0.01]
+
+right_mono:
+  fx: 800.0
+  fy: 800.0
+  cx: 320.0
+  cy: 200.0
+  width: 640
+  height: 400
+  distortion_model: radtan
+  distortion_coeffs: [0.03, -0.05, 0.0, 0.0, 0.01]

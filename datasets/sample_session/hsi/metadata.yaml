@@ -1,0 +1,28 @@
+# HSI Camera Metadata
+# Placeholder values for sample session
+
+camera:
+  model: "Generic HSI Line-Scan"
+  serial: "HSI-001"
+
+# Slit parameters
+slit_width: 1280  # pixels along slit
+
+# Spectral parameters
+num_bands: 224
+wavelength_range_nm:
+  start: 400.0
+  end: 1000.0
+wavelengths_nm: null  # Would contain full list in real session
+
+# Acquisition parameters
+fps: 100.0  # Line rate (lines per second)
+integration_time_us: 5000.0
+
+# Motion estimate for slow-motion validation
+estimated_velocity_mps: 0.05  # 5 cm/s
+
+# Notes
+notes: |
+  Sample HSI metadata for testing.
+  Replace with actual camera parameters for real calibration.

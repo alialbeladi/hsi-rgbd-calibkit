@@ -1,0 +1,27 @@
+# Li-Wen-Qiu Calibration Method Configuration
+#
+# This configuration file controls the calibration method behavior.
+# The Li-Wen-Qiu method estimates HSI slit intrinsics and extrinsics
+# between a line-scan camera and a frame camera.
+
+# Backend selection
+# - "stub": Load precomputed results from cal_method/cal_method_output.yaml
+# - "python": Run the Python implementation (placeholder with TODOs)
+backend: stub
+
+# Method identifier (for documentation/traceability)
+method_name: li_wen_qiu
+
+# Optimization parameters
+max_iterations: 100
+convergence_threshold: 1.0e-6
+
+# RANSAC outlier rejection
+use_ransac: true
+ransac_threshold_px: 2.0
+
+# Minimum required correspondences
+min_correspondences: 20
+
+# Verbose output
+verbose: true

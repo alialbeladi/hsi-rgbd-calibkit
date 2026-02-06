@@ -1,0 +1,30 @@
+# Sample Session Metadata
+# This file contains metadata about the calibration session.
+
+name: sample_session
+description: |
+  A minimal sample session for testing the calibration toolkit.
+  Uses stub/precomputed calibration results.
+
+# Session creation timestamp
+created_at: "2024-01-15T10:30:00Z"
+
+# Equipment information
+equipment:
+  hsi_camera:
+    model: "Generic HSI Line-Scan"
+    serial: "HSI-001"
+  rgb_camera:
+    model: "OAK-D S2"
+    serial: "14110250AB"
+
+# Acquisition parameters
+acquisition:
+  num_frames: 10
+  duration_seconds: 5.0
+  target_type: charuco_6x9
+
+# Notes
+notes: |
+  This is a sample session with minimal placeholder data.
+  For real calibration, replace with actual acquisition data.

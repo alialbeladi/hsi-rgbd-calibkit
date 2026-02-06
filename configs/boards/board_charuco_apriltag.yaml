@@ -1,0 +1,43 @@
+# ChArUco + AprilTag Board Configuration
+#
+# Configuration for a 6x9 ChArUco calibration board using the DICT_6X6_250
+# ArUco dictionary.
+
+# Board identification
+name: charuco_6x9_standard
+
+# Board type: "charuco" or "apriltag"
+board_type: charuco
+
+# Board dimensions (number of squares)
+squares_x: 9
+squares_y: 6
+
+# Physical sizes (in meters)
+# These should match the printed target exactly!
+square_length_m: 0.030  # 30mm squares
+marker_length_m: 0.0225 # 22.5mm markers (75% of square size)
+
+# ArUco dictionary
+# Common options: DICT_4X4_250, DICT_5X5_250, DICT_6X6_250, DICT_7X7_250
+dictionary: DICT_6X6_250
+
+# Marker border size in bits (typically 1)
+border_bits: 1
+
+# Detection parameters
+detection:
+  # Adaptive threshold window size
+  adaptive_thresh_win_size: 23
+  
+  # Minimum marker perimeter rate
+  min_marker_perimeter_rate: 0.03
+  
+  # Maximum marker perimeter rate  
+  max_marker_perimeter_rate: 4.0
+  
+  # Corner refinement method: "none", "subpix", "contour"
+  corner_refinement_method: subpix
+  
+  # Corner refinement window size
+  corner_refinement_win_size: 5
