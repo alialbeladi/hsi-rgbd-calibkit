@@ -241,9 +241,18 @@ def load_li_wen_qiu_pattern(path: Path | str) -> LiWenQiuPattern:
 def get_default_li_wen_qiu_pattern() -> LiWenQiuPattern:
     """Get the default Li-Wen-Qiu right-triangle pattern.
     
-    This pattern has:
-    - L1, L3, L5: Horizontal lines (parallel to X-axis) at Y=0, wp2, wp1
-    - L2, L4, L6: Diagonal lines (X=Y+c) passing through specific points
+    This pattern follows the conventions from Table 2 of the Li-Wen-Qiu paper:
+    - L1, L2, L3: Horizontal lines (parallel to X-axis) at Y=0, Y=wp2, Y=wp1
+    - L4, L5, L6: Diagonal lines (X=Y+c) with same slope, at offsets 0, wp2, wp1
+    
+    Note: The cross-ratio formulas in the paper are derived specifically for
+    this pattern configuration. The point assignments are:
+    - P1 on L1 (Y=0) and L4 (X=Y) -> P1 = (0, 0)
+    - P2 on L2 (Y=wp2) and L4 (X=Y) -> P2 = (wp2, wp2)
+    - P3 on L3 (Y=wp1) and L4 (X=Y) -> P3 = (wp1, wp1)
+    - P4 on L1 (Y=0) and L5 (X=Y+wp2) -> P4 = (wp2, 0)
+    - P5 on L1 (Y=0) and L6 (X=Y+wp1) -> P5 = (wp1, 0)
+    - P6 on L2 (Y=wp2) and L6 (X=Y+wp1) -> P6 = (wp1+wp2, wp2)
     
     Returns:
         Default LiWenQiuPattern instance.
@@ -252,19 +261,20 @@ def get_default_li_wen_qiu_pattern() -> LiWenQiuPattern:
     wp2 = 0.050  # 50mm
     
     # Feature lines as (a, b, c) where ax + by + c = 0
+    # Following paper's Table 2:
     # L1: Y = 0          -> 0*x + 1*y + 0 = 0
-    # L2: X = Y          -> 1*x - 1*y + 0 = 0
-    # L3: Y = wp2        -> 0*x + 1*y - wp2 = 0
-    # L4: X = Y + wp2    -> 1*x - 1*y - wp2 = 0
-    # L5: Y = wp1        -> 0*x + 1*y - wp1 = 0
+    # L2: Y = wp2        -> 0*x + 1*y - wp2 = 0
+    # L3: Y = wp1        -> 0*x + 1*y - wp1 = 0
+    # L4: X = Y          -> 1*x - 1*y + 0 = 0
+    # L5: X = Y + wp2    -> 1*x - 1*y - wp2 = 0
     # L6: X = Y + wp1    -> 1*x - 1*y - wp1 = 0
     
     feature_lines = [
         (0.0, 1.0, 0.0),        # L1: Y = 0
-        (1.0, -1.0, 0.0),       # L2: X = Y
-        (0.0, 1.0, -wp2),       # L3: Y = wp2
-        (1.0, -1.0, -wp2),      # L4: X - Y = wp2
-        (0.0, 1.0, -wp1),       # L5: Y = wp1
+        (0.0, 1.0, -wp2),       # L2: Y = wp2
+        (0.0, 1.0, -wp1),       # L3: Y = wp1
+        (1.0, -1.0, 0.0),       # L4: X = Y
+        (1.0, -1.0, -wp2),      # L5: X - Y = wp2
         (1.0, -1.0, -wp1),      # L6: X - Y = wp1
     ]
     
@@ -275,3 +285,4 @@ def get_default_li_wen_qiu_pattern() -> LiWenQiuPattern:
         feature_lines=feature_lines,
         line_names=["L1", "L2", "L3", "L4", "L5", "L6"],
     )
+

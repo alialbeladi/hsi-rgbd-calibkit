@@ -322,6 +322,17 @@ class LiWenQiuBackend:
             valid_res = residuals[np.isfinite(residuals)]
             view_rmse = float(np.sqrt(np.mean(valid_res ** 2))) if len(valid_res) > 0 else float('inf')
             
+            # Compute P_pattern_final from scan_line intersections with feature lines
+            P_final = []
+            for fl in self.pattern.feature_lines:
+                pt = intersect_lines_2d(scan_line, fl)
+                if pt is not None:
+                    P_final.append([pt[0], pt[1], 0.0])
+                else:
+                    # Parallel - use pattern_points as fallback
+                    P_final.append(pattern_points[j][len(P_final)])
+            P_pattern_final = np.array(P_final, dtype=np.float64)
+            
             per_view_results.append(ViewResult(
                 view_id=view.view_id or f"view_{j}",
                 R_frame_pattern=R_j,
@@ -332,8 +343,8 @@ class LiWenQiuBackend:
                 v_observed=v_obs,
                 v_init=v_init,
                 v_final=v_final,
-                P_pattern_init=pattern_points[j],  # Before refinement
-                P_pattern_final=pattern_points[j],  # Same for now (not recomputed)
+                P_pattern_init=pattern_points[j],
+                P_pattern_final=P_pattern_final,
                 residual_rmse=view_rmse,
             ))
         

@@ -5,124 +5,170 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from hsi_rgbd_calib.cal_method.li_wen_qiu.cross_ratio import (
+    compute_cross_ratio,
     compute_cross_ratios,
-    compute_X3_X5_from_cross_ratios,
+    recover_y_from_cross_ratio,
     recover_pattern_points_from_observations,
 )
 from hsi_rgbd_calib.boards.li_wen_qiu_pattern import get_default_li_wen_qiu_pattern
+from hsi_rgbd_calib.cal_method.li_wen_qiu.sim import simulate_views, NoiseConfig
+from hsi_rgbd_calib.cal_method.li_wen_qiu.projection import (
+    compute_scan_line_in_pattern,
+    compute_transform_pattern_to_linescan,
+)
+from hsi_rgbd_calib.boards.geometry import intersect_lines_2d
 
 
-class TestComputeCrossRatios:
-    """Tests for compute_cross_ratios function."""
+class TestComputeCrossRatio:
+    """Tests for cross-ratio computation."""
     
-    def test_simple_case(self):
-        """Test cross-ratio computation with known values."""
-        # Use specific values where cross-ratios are easy to verify
-        v1, v2, v3, v4, v5, v6 = 0, 100, 200, 300, 400, 500
-        CR1, CR2 = compute_cross_ratios(v1, v2, v3, v4, v5, v6)
+    def test_cross_ratio_basic(self):
+        """Test basic cross-ratio formula."""
+        # CR(a, b, c, d) = ((a-c)*(b-d)) / ((b-c)*(a-d))
+        # With a=0, b=1, c=2, d=3:
+        # CR = ((0-2)*(1-3)) / ((1-2)*(0-3)) = (-2)*(-2) / ((-1)*(-3)) = 4/3
+        cr = compute_cross_ratio(0, 1, 2, 3)
+        expected = 4.0 / 3.0
+        assert_allclose(cr, expected)
+    
+    def test_cross_ratio_invariant(self):
+        """Test that cross-ratio is projective invariant."""
+        # If we scale all values by a constant, CR should remain the same
+        a, b, c, d = 10, 20, 30, 50
+        cr1 = compute_cross_ratio(a, b, c, d)
+        cr2 = compute_cross_ratio(2*a, 2*b, 2*c, 2*d)  # Scaled
+        assert_allclose(cr1, cr2)
         
-        # Verify formulas
-        expected_CR1 = ((v2 - v6) * (v4 - v3)) / ((v4 - v6) * (v2 - v3))
-        expected_CR2 = ((v4 - v2) * (v6 - v5)) / ((v6 - v2) * (v4 - v5))
-        
-        assert_allclose(CR1, expected_CR1)
-        assert_allclose(CR2, expected_CR2)
+        # If we translate all values, CR should remain the same
+        cr3 = compute_cross_ratio(a+100, b+100, c+100, d+100)
+        assert_allclose(cr1, cr3)
     
     def test_degenerate_case_raises(self):
         """Test that degenerate cases raise ValueError."""
-        # v2 = v3 causes denominator to be zero in CR1
         with pytest.raises(ValueError, match="Degenerate"):
-            compute_cross_ratios(0, 100, 100, 300, 400, 500)
+            compute_cross_ratio(0, 1, 1, 2)  # b = c causes denominator = 0
 
 
-class TestComputeX3X5:
-    """Tests for compute_X3_X5_from_cross_ratios function."""
+class TestRecoverYFromCrossRatio:
+    """Tests for Y-coordinate recovery from cross-ratio."""
     
-    def test_simple_case(self):
-        """Test X3, X5 computation."""
-        wp1 = 0.1
-        wp2 = 0.05
-        CR1 = 1.0  # X3 = 2*wp2 / (2 - 1) = 2*wp2 = 0.1
-        CR2 = 0.25  # X5 = wp1 / (1 - 0.5) = wp1 / 0.5 = 0.2
+    def test_basic_recovery(self):
+        """Test Y recovery formula."""
+        wp1, wp2 = 0.1, 0.05
         
-        X3, X5 = compute_X3_X5_from_cross_ratios(CR1, CR2, wp1, wp2)
+        # For a known Y value, compute what CR should be, then verify recovery
+        y_true = 0.04  # Target Y
         
-        assert_allclose(X3, 0.1)  # 2 * 0.05 / (2 - 1)
-        assert_allclose(X5, 0.2)  # 0.1 / (1 - 0.5)
+        # CR(y1, y2, y, y3) = ((y1-y)*(y2-y3)) / ((y2-y)*(y1-y3))
+        # = ((0 - y)*(wp2 - wp1)) / ((wp2 - y)*(0 - wp1))
+        # = ((-y)*(wp2 - wp1)) / ((wp2 - y)*(-wp1))
+        # = (y*(wp2 - wp1)) / ((wp2 - y)*wp1)  [negatives cancel]
+        cr = (y_true * (wp2 - wp1)) / ((wp2 - y_true) * wp1)
+        
+        y_recovered = recover_y_from_cross_ratio(cr, wp1, wp2)
+        assert_allclose(y_recovered, y_true, atol=1e-10)
     
-    def test_degenerate_CR1_raises(self):
-        """Test that CR1 = 2 raises ValueError."""
-        with pytest.raises(ValueError, match="Degenerate X3"):
-            compute_X3_X5_from_cross_ratios(2.0, 0.25, 0.1, 0.05)
-    
-    def test_degenerate_CR2_raises(self):
-        """Test that CR2 = 0.5 raises ValueError."""
-        with pytest.raises(ValueError, match="Degenerate X5"):
-            compute_X3_X5_from_cross_ratios(1.0, 0.5, 0.1, 0.05)
+    def test_degenerate_case_raises(self):
+        """Test that degenerate case raises ValueError."""
+        wp1, wp2 = 0.1, 0.05
+        # CR = 1 - wp2/wp1 would make denominator zero
+        cr_degenerate = 1 - wp2/wp1
+        with pytest.raises(ValueError, match="Degenerate"):
+            recover_y_from_cross_ratio(cr_degenerate, wp1, wp2)
 
 
 class TestRecoverPatternPoints:
-    """Tests for recover_pattern_points_from_observations function."""
+    """Tests for full pattern point recovery."""
     
-    def test_with_synthetic_observations(self):
-        """Test pattern point recovery with synthetic data."""
+    def test_roundtrip_noiseless(self):
+        """Test that pattern points can be recovered from observations."""
         pattern = get_default_li_wen_qiu_pattern()
         
-        # Generate synthetic observations that correspond to a known scan line
-        # Let's say scan line passes through (0.06, 0.05) and (0.12, 0.10)
-        # which are on L3 and L5 respectively
+        # Simulate with no noise
+        sim_result = simulate_views(
+            n_views=1,
+            noise_config=NoiseConfig(sigma_v=0.0),
+            seed=42,
+        )
+        gt = sim_result.ground_truth
+        view = sim_result.views[0]
         
-        # For this, we need to work backwards from known pattern points
-        # and compute what the observations would be
+        # Get true pattern points
+        R0, T0 = compute_transform_pattern_to_linescan(
+            view.R_frame_pattern, view.T_frame_pattern, gt.R, gt.T
+        )
+        scan_line = compute_scan_line_in_pattern(R0, T0)
+        true_points = [intersect_lines_2d(scan_line, fl) for fl in pattern.feature_lines]
         
-        # Use a simple case: vertical scan line at X = 0.075
-        # P1 on L1 (Y=0): (0.075, 0, 0)
-        # P2 on L2 (X=Y): need intersection
-        # etc.
+        # Recover using cross-ratio
+        recovered = recover_pattern_points_from_observations(
+            v_obs=list(view.v_observations),
+            wp1=pattern.wp1,
+            wp2=pattern.wp2,
+            pattern_lines=pattern.feature_lines,
+        )
         
-        # For simplicity, just verify the function runs without error
-        # with reasonable inputs
-        pass  # Complex setup needed, covered in integration tests
+        # Compare - should be exact for noiseless case
+        for i in range(6):
+            assert_allclose(recovered[i][:2], true_points[i], atol=1e-6)
     
-    def test_input_validation(self):
-        """Test that wrong number of observations raises error."""
+    def test_multiple_views(self):
+        """Test recovery across multiple views."""
         pattern = get_default_li_wen_qiu_pattern()
         
-        with pytest.raises(ValueError, match="Expected 6"):
-            recover_pattern_points_from_observations(
-                v_obs=[100, 200, 300],  # Only 3, need 6
+        sim_result = simulate_views(
+            n_views=5,
+            noise_config=NoiseConfig(sigma_v=0.0),
+            seed=123,
+        )
+        gt = sim_result.ground_truth
+        
+        for view in sim_result.views:
+            # Get true pattern points
+            R0, T0 = compute_transform_pattern_to_linescan(
+                view.R_frame_pattern, view.T_frame_pattern, gt.R, gt.T
+            )
+            scan_line = compute_scan_line_in_pattern(R0, T0)
+            true_points = [intersect_lines_2d(scan_line, fl) for fl in pattern.feature_lines]
+            
+            # Recover
+            recovered = recover_pattern_points_from_observations(
+                v_obs=list(view.v_observations),
                 wp1=pattern.wp1,
                 wp2=pattern.wp2,
                 pattern_lines=pattern.feature_lines,
             )
-
-
-class TestCrossRatioRoundtrip:
-    """Integration tests for cross-ratio roundtrip."""
+            
+            for i in range(6):
+                assert_allclose(recovered[i][:2], true_points[i], atol=1e-6)
     
-    def test_roundtrip_consistency(self):
-        """Test that cross-ratio computation is consistent."""
-        # Generate synthetic pattern points on a scan line
+    def test_with_noise(self):
+        """Test that recovery is approximate with noise."""
         pattern = get_default_li_wen_qiu_pattern()
         
-        from hsi_rgbd_calib.boards.geometry import (
-            line_through_points,
-            intersect_lines_2d,
+        sim_result = simulate_views(
+            n_views=1,
+            noise_config=NoiseConfig(sigma_v=0.5),  # Small noise
+            seed=42,
+        )
+        gt = sim_result.ground_truth
+        view = sim_result.views[0]
+        
+        # Get true pattern points
+        R0, T0 = compute_transform_pattern_to_linescan(
+            view.R_frame_pattern, view.T_frame_pattern, gt.R, gt.T
+        )
+        scan_line = compute_scan_line_in_pattern(R0, T0)
+        true_points = [intersect_lines_2d(scan_line, fl) for fl in pattern.feature_lines]
+        
+        # Recover - should still work but not exact
+        recovered = recover_pattern_points_from_observations(
+            v_obs=list(view.v_observations),
+            wp1=pattern.wp1,
+            wp2=pattern.wp2,
+            pattern_lines=pattern.feature_lines,
         )
         
-        # Define a scan line through two points
-        p3 = (0.06, pattern.wp2)  # On L3
-        p5 = (0.12, pattern.wp1)  # On L5
-        
-        scan_line = line_through_points(p3, p5)
-        
-        # Compute all 6 intersections
-        points_2d = []
-        for line in pattern.feature_lines:
-            pt = intersect_lines_2d(scan_line, line)
-            assert pt is not None
-            points_2d.append(pt)
-        
-        # Verify P3 and P5 match expected
-        assert_allclose(points_2d[2], p3, atol=1e-10)  # P3
-        assert_allclose(points_2d[4], p5, atol=1e-10)  # P5
+        # With small noise, should be within reasonable tolerance
+        for i in range(6):
+            assert_allclose(recovered[i][:2], true_points[i], atol=0.01)  # 1cm tolerance

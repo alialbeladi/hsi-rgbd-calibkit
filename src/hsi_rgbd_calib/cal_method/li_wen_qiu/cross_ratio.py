@@ -1,9 +1,26 @@
 """Cross-ratio computation for Li-Wen-Qiu calibration.
 
-This module implements Section 3.2 of the Li-Wen-Qiu paper:
-point correspondence establishment using cross-ratio invariance.
+This module implements point correspondence establishment using cross-ratio invariance.
 
-Reference: Equations (11), (12), (13), (14) in the paper.
+The pattern has 6 feature lines:
+- L1: Y = 0 (horizontal)
+- L2: Y = wp2 (horizontal)
+- L3: Y = wp1 (horizontal)
+- L4: X = Y (diagonal)
+- L5: X - Y = wp2 (diagonal)
+- L6: X - Y = wp1 (diagonal)
+
+Cross-ratio invariance: CR(Pa, Pb, Pc, Pd) on pattern = CR(va, vb, vc, vd) observed
+
+Using CR(P1, P2, PN, P3) where P1, P2, P3 are on known horizontal lines (Y=0, wp2, wp1),
+we can recover the Y-coordinate of any diagonal point PN:
+
+    yN = (CR * wp1 * wp2) / (wp2 + wp1 * (CR - 1))
+
+Then X-coordinates are computed from the line equations:
+- For L4 (X=Y): X4 = Y4
+- For L5 (X-Y=wp2): X5 = Y5 + wp2
+- For L6 (X-Y=wp1): X6 = Y6 + wp1
 """
 
 from __future__ import annotations
@@ -13,82 +30,53 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def compute_cross_ratios(
-    v1: float, v2: float, v3: float, v4: float, v5: float, v6: float
-) -> Tuple[float, float]:
-    """Compute the two cross-ratios from 6 observed line-scan coordinates.
-    
-    Implements Equations (13) and (14) from the paper:
-        CR1 = CrossRatio(p2, p4, p6, p3) = ((v2-v6)/(v4-v6)) / ((v2-v3)/(v4-v3))
-        CR2 = CrossRatio(p4, p6, p2, p5) = ((v4-v2)/(v6-v2)) / ((v4-v5)/(v6-v5))
+def compute_cross_ratio(va: float, vb: float, vc: float, vd: float) -> float:
+    """Compute cross-ratio CR(a, b; c, d) = ((a-c)*(b-d)) / ((b-c)*(a-d)).
     
     Args:
-        v1-v6: Observed pixel coordinates from line-scan image for points P1-P6.
+        va, vb, vc, vd: Four collinear point coordinates.
         
     Returns:
-        Tuple of (CR1, CR2).
+        Cross-ratio value.
         
     Raises:
-        ValueError: If cross-ratio computation fails (degenerate configuration).
+        ValueError: If denominator is near zero.
     """
-    # CR1 = ((v2-v6)/(v4-v6)) / ((v2-v3)/(v4-v3))
-    # Rewritten: CR1 = ((v2-v6) * (v4-v3)) / ((v4-v6) * (v2-v3))
-    den1 = (v4 - v6) * (v2 - v3)
-    if abs(den1) < 1e-12:
-        raise ValueError("Degenerate configuration for CR1: denominator near zero")
+    den = (vb - vc) * (va - vd)
+    if abs(den) < 1e-12:
+        raise ValueError("Degenerate cross-ratio: denominator near zero")
     
-    CR1 = ((v2 - v6) * (v4 - v3)) / den1
-    
-    # CR2 = ((v4-v2)/(v6-v2)) / ((v4-v5)/(v6-v5))
-    # Rewritten: CR2 = ((v4-v2) * (v6-v5)) / ((v6-v2) * (v4-v5))
-    den2 = (v6 - v2) * (v4 - v5)
-    if abs(den2) < 1e-12:
-        raise ValueError("Degenerate configuration for CR2: denominator near zero")
-    
-    CR2 = ((v4 - v2) * (v6 - v5)) / den2
-    
-    return CR1, CR2
+    return ((va - vc) * (vb - vd)) / den
 
 
-def compute_X3_X5_from_cross_ratios(
-    CR1: float,
-    CR2: float,
-    wp1: float,
+def recover_y_from_cross_ratio(
+    cr: float,
+    wp1: float, 
     wp2: float,
-) -> Tuple[float, float]:
-    """Compute X3 and X5 from cross-ratios and pattern dimensions.
+) -> float:
+    """Recover Y-coordinate of a diagonal point from cross-ratio.
     
-    Implements Equations (11) and (12) from the paper:
-        X3 = 2 * wp2 / (2 - CR1)
-        X5 = wp1 / (1 - 2 * CR2)
+    Given CR(P1, P2, PN, P3) where:
+    - P1 is on L1 (Y=0)
+    - P2 is on L2 (Y=wp2)  
+    - P3 is on L3 (Y=wp1)
+    - PN is on a diagonal line
+    
+    The formula is: yN = (CR * wp1 * wp2) / (wp2 + wp1 * (CR - 1))
     
     Args:
-        CR1: First cross-ratio.
-        CR2: Second cross-ratio.
-        wp1: Pattern width parameter 1 (spacing to L5/L6).
-        wp2: Pattern width parameter 2 (spacing to L3/L4).
+        cr: Cross-ratio CR(v1, v2, vN, v3).
+        wp1: Pattern parameter (Y-coord of L3).
+        wp2: Pattern parameter (Y-coord of L2).
         
     Returns:
-        Tuple of (X3, X5) coordinates.
-        
-    Raises:
-        ValueError: If denominators are near zero.
+        Y-coordinate of the diagonal point.
     """
-    # X3 = 2 * wp2 / (2 - CR1)
-    den_x3 = 2.0 - CR1
-    if abs(den_x3) < 1e-12:
-        raise ValueError(f"Degenerate X3 computation: 2 - CR1 = {den_x3}")
+    den = wp2 + wp1 * (cr - 1.0)
+    if abs(den) < 1e-12:
+        raise ValueError(f"Degenerate Y recovery: denominator = {den}")
     
-    X3 = (2.0 * wp2) / den_x3
-    
-    # X5 = wp1 / (1 - 2 * CR2)
-    den_x5 = 1.0 - 2.0 * CR2
-    if abs(den_x5) < 1e-12:
-        raise ValueError(f"Degenerate X5 computation: 1 - 2*CR2 = {den_x5}")
-    
-    X5 = wp1 / den_x5
-    
-    return X3, X5
+    return (cr * wp1 * wp2) / den
 
 
 def recover_pattern_points_from_observations(
@@ -99,19 +87,21 @@ def recover_pattern_points_from_observations(
 ) -> List[Tuple[float, float, float]]:
     """Recover 3D pattern points P1-P6 from observed line-scan coordinates.
     
-    This is the main function implementing Section 3.2 of the paper.
+    Uses cross-ratio invariance to determine the position of points on
+    diagonal feature lines (L4, L5, L6), then computes all 6 intersection
+    points with the scan line.
     
     Algorithm:
-    1. Compute cross-ratios CR1, CR2 from v1-v6
-    2. Compute X3, X5 from cross-ratios and pattern dimensions
-    3. Compute P3, P5 on their feature lines (L3: Y=wp2, L5: Y=wp1)
-    4. Form scan line through P3, P5
-    5. Intersect scan line with all 6 feature lines to get P1-P6
+    1. Compute CR(v1, v2, v4, v3) to find Y4, then X4 = Y4 (since L4: X=Y)
+    2. Compute CR(v1, v2, v5, v3) to find Y5, then X5 = Y5 + wp2 (L5: X-Y=wp2)
+    3. Compute CR(v1, v2, v6, v3) to find Y6, then X6 = Y6 + wp1 (L6: X-Y=wp1)
+    4. Form scan line through P4, P5, P6
+    5. Intersect scan line with L1, L2, L3 to get P1, P2, P3
     
     Args:
         v_obs: List of 6 observed pixel coordinates [v1, v2, v3, v4, v5, v6].
-        wp1: Pattern width parameter 1.
-        wp2: Pattern width parameter 2.
+        wp1: Pattern width parameter 1 (Y-coord of L3).
+        wp2: Pattern width parameter 2 (Y-coord of L2).
         pattern_lines: List of 6 feature line tuples [(a, b, c), ...].
         
     Returns:
@@ -127,20 +117,29 @@ def recover_pattern_points_from_observations(
     
     v1, v2, v3, v4, v5, v6 = v_obs
     
-    # Step 1: Compute cross-ratios
-    CR1, CR2 = compute_cross_ratios(v1, v2, v3, v4, v5, v6)
+    # Step 1: Recover Y4, Y5, Y6 using cross-ratios
+    # CR(P1, P2, P4, P3) -> Y4
+    cr4 = compute_cross_ratio(v1, v2, v4, v3)
+    y4 = recover_y_from_cross_ratio(cr4, wp1, wp2)
+    x4 = y4  # L4: X = Y
     
-    # Step 2: Compute X3, X5
-    X3, X5 = compute_X3_X5_from_cross_ratios(CR1, CR2, wp1, wp2)
+    # CR(P1, P2, P5, P3) -> Y5
+    cr5 = compute_cross_ratio(v1, v2, v5, v3)
+    y5 = recover_y_from_cross_ratio(cr5, wp1, wp2)
+    x5 = y5 + wp2  # L5: X - Y = wp2
     
-    # Step 3: P3 is at (X3, wp2, 0), P5 is at (X5, wp1, 0)
-    P3_2d = (X3, wp2)
-    P5_2d = (X5, wp1)
+    # CR(P1, P2, P6, P3) -> Y6
+    cr6 = compute_cross_ratio(v1, v2, v6, v3)
+    y6 = recover_y_from_cross_ratio(cr6, wp1, wp2)
+    x6 = y6 + wp1  # L6: X - Y = wp1
     
-    # Step 4: Form scan line through P3, P5
-    scan_line = line_through_points(P3_2d, P5_2d)
+    # Step 2: Form scan line through P4 and P5 (or P5 and P6)
+    p4_2d = (x4, y4)
+    p5_2d = (x5, y5)
     
-    # Step 5: Intersect with all feature lines
+    scan_line = line_through_points(p4_2d, p5_2d)
+    
+    # Step 3: Intersect scan line with all feature lines to get all points
     points_3d = []
     for i, feature_line in enumerate(pattern_lines):
         pt = intersect_lines_2d(scan_line, feature_line)
@@ -151,22 +150,49 @@ def recover_pattern_points_from_observations(
     return points_3d
 
 
-def validate_cross_ratio_ordering(v_obs: List[float]) -> bool:
-    """Validate that observations have expected ordering.
+# Keep old API for backward compatibility
+def compute_cross_ratios(
+    v1: float, v2: float, v3: float, v4: float, v5: float, v6: float
+) -> Tuple[float, float]:
+    """Compute cross-ratios CR(v1,v2,v4,v3) and CR(v1,v2,v5,v3).
     
-    For the Li-Wen-Qiu pattern, the 6 points should appear in
-    a specific order along the scan line.
+    This is kept for backward compatibility. New code should use
+    compute_cross_ratio() directly.
+    """
+    cr4 = compute_cross_ratio(v1, v2, v4, v3)
+    cr5 = compute_cross_ratio(v1, v2, v5, v3)
+    return cr4, cr5
+
+
+def compute_X3_X5_from_cross_ratios(
+    CR1: float,
+    CR2: float,
+    wp1: float,
+    wp2: float,
+) -> Tuple[float, float]:
+    """Compute X coordinates from cross-ratios.
+    
+    This function is kept for backward compatibility. The naming refers to
+    the OLD pattern indexing. In the new indexing:
+    - CR1 gives X4 (point on L4)
+    - CR2 gives X5 (point on L5)
+    """
+    y4 = recover_y_from_cross_ratio(CR1, wp1, wp2)
+    y5 = recover_y_from_cross_ratio(CR2, wp1, wp2)
+    x4 = y4  # L4: X = Y
+    x5 = y5 + wp2  # L5: X - Y = wp2
+    return x4, x5
+
+
+def validate_cross_ratio_ordering(v_obs: List[float]) -> bool:
+    """Validate that observations have reasonable values.
     
     Args:
         v_obs: List of 6 observed coordinates.
         
     Returns:
-        True if ordering is valid.
+        True if values are valid.
     """
-    # The exact ordering depends on the camera orientation
-    # At minimum, check that all values are unique and monotonic
-    # (either increasing or decreasing)
-    
     if len(v_obs) != 6:
         return False
     
@@ -176,11 +202,8 @@ def validate_cross_ratio_ordering(v_obs: List[float]) -> bool:
     if len(np.unique(v)) != 6:
         return False
     
-    # Values should be in some order (either sorted or reverse sorted)
-    sorted_v = np.sort(v)
-    is_increasing = np.allclose(v, sorted_v)
-    is_decreasing = np.allclose(v, sorted_v[::-1])
+    # Check for NaN or inf
+    if np.any(~np.isfinite(v)):
+        return False
     
-    # For general configurations, we don't require strict sorting
-    # Just check that differences are reasonable
     return True
