@@ -104,6 +104,39 @@ class HsiSlitIntrinsicsResult:
 
 
 @dataclass
+class ViewResult:
+    """Per-view calibration data for visualization and debugging.
+    
+    Attributes:
+        view_id: Unique identifier for this view.
+        R_frame_pattern: 3x3 rotation pattern→frame camera.
+        T_frame_pattern: 3-element translation pattern→frame (meters).
+        R0: 3x3 composed rotation pattern→HSI.
+        T0: 3-element composed translation pattern→HSI (meters).
+        scan_line: (a, b, c) coefficients of scan line in pattern plane.
+        v_observed: 6-element array of observed pixel coordinates.
+        v_init: 6-element array of initial predictions (after closed-form).
+        v_final: 6-element array of final predictions (after refinement).
+        P_pattern_init: 6x3 array of initial recovered pattern points.
+        P_pattern_final: 6x3 array of final recovered pattern points.
+        residual_rmse: RMS residual for this view (pixels).
+    """
+    
+    view_id: str
+    R_frame_pattern: NDArray[np.float64]
+    T_frame_pattern: NDArray[np.float64]
+    R0: NDArray[np.float64]
+    T0: NDArray[np.float64]
+    scan_line: tuple  # (a, b, c)
+    v_observed: NDArray[np.float64]
+    v_init: NDArray[np.float64]
+    v_final: NDArray[np.float64]
+    P_pattern_init: NDArray[np.float64]
+    P_pattern_final: NDArray[np.float64]
+    residual_rmse: float
+
+
+@dataclass
 class CalibrationResult:
     """Result of the calibration process.
     
@@ -120,6 +153,8 @@ class CalibrationResult:
         method: Method name used.
         success: Whether calibration succeeded.
         message: Status message or error description.
+        per_view: Per-view calibration data for visualization.
+        cost_history: Optimization cost history for visualization.
     """
     
     T_oakrgb_hsi: NDArray[np.float64]
@@ -134,6 +169,8 @@ class CalibrationResult:
     method: str = "li_wen_qiu"
     success: bool = True
     message: str = "Calibration completed successfully"
+    per_view: List[ViewResult] = field(default_factory=list)
+    cost_history: Optional[List[float]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""

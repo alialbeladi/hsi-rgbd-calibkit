@@ -16,6 +16,9 @@ from hsi_rgbd_calib.cal_method.stub_backend import (
 from hsi_rgbd_calib.cal_method.python_backend import (
     PythonBackend,
 )
+from hsi_rgbd_calib.cal_method.li_wen_qiu import (
+    LiWenQiuBackend,
+)
 
 __all__ = [
     "CalibrationResult",
@@ -24,4 +27,6 @@ __all__ = [
     "StubBackend",
     "load_precomputed_results",
     "PythonBackend",
+    "LiWenQiuBackend",
 ]
+

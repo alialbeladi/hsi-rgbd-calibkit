@@ -1,0 +1,49 @@
+# Li-Wen-Qiu Right-Triangle Calibration Pattern
+#
+# Pattern geometry for the cross-ratio-based line-scan camera calibration
+# method from Li, Wen, Qiu (Optical Engineering, 2016).
+#
+# The pattern lies in the Z=0 plane in pattern coordinates.
+# Each feature line is defined as ax + by + c = 0.
+
+name: li_wen_qiu_right_triangle
+
+# Dimensions used in cross-ratio formulas (Eqs 11-12)
+dimensions:
+  wp1: 0.100  # Width parameter 1 (meters) - spacing to L5/L6
+  wp2: 0.050  # Width parameter 2 (meters) - spacing to L3/L4
+
+# 6 feature lines in pattern coordinates
+# Line format: [a, b, c] where ax + by + c = 0
+#
+# The pattern consists of:
+# - L1, L3, L5: Horizontal lines (parallel to X-axis)
+# - L2, L4, L6: Diagonal lines (parallel to each other)
+#
+# This creates a right-triangle-like pattern where:
+# - L1 passes through origin (Y=0)
+# - L3 is at Y=wp2 (0.05m)
+# - L5 is at Y=wp1 (0.10m)
+# - L2 is the diagonal X=Y
+# - L4 is X=Y+wp2
+# - L6 is X=Y+wp1
+
+feature_lines:
+  L1: [0.0, 1.0, 0.0]        # Y = 0 (X-axis)
+  L2: [1.0, -1.0, 0.0]       # X - Y = 0 (diagonal through origin)
+  L3: [0.0, 1.0, -0.050]     # Y = 0.050 (wp2)
+  L4: [1.0, -1.0, -0.050]    # X - Y = 0.050 (wp2)
+  L5: [0.0, 1.0, -0.100]     # Y = 0.100 (wp1)
+  L6: [1.0, -1.0, -0.100]    # X - Y = 0.100 (wp1)
+
+# Notes for pattern fabrication
+notes: |
+  The physical pattern should be printed or engraved on a flat rigid surface.
+  Feature lines should be precisely positioned - errors directly affect calibration.
+  Recommended: use high-precision laser cutting or CNC machining.
+  
+  Coordinate system:
+  - Origin at intersection of L1 and L2
+  - X-axis along L1
+  - Y-axis perpendicular to L1
+  - Z-axis out of pattern plane (towards camera)
