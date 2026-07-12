@@ -146,7 +146,7 @@ def compute_scan_line_in_pattern(
     Returns:
         Line coefficients (a, b, c) where aX + bY + c = 0.
     """
-    # The scan plane is the Y=0 plane in line-scan coordinates
+    # The scan plane is the X=0 plane in line-scan coordinates (all rays lie in Y_h-Z_h plane)
     # In pattern coordinates, this becomes:
     # r0_11*X + r0_12*Y + r0_13*Z + t0_1 = 0
     # With Z=0: r0_11*X + r0_12*Y + t0_1 = 0
